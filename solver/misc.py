@@ -10,6 +10,12 @@ from utils.image import save_image
 
 
 @torch.no_grad()
+def sample_using_latent(nets, args, z, filename):
+    x = nets.generator(z)
+    save_image(x, z.size()[0], filename)
+
+
+@torch.no_grad()
 def translate_using_latent(nets, args, x_src, y_trg_list, z_trg_list, filename):
     x_concat = [x_src]
     for y_trg in y_trg_list:

@@ -8,9 +8,7 @@ from solver.solver import Solver
 def main(args):
     solver = Solver(args)
     if args.mode == 'train':
-        loaders = Munch(train=get_train_loader(**args), test=get_test_loader(**args))
-        if args.selected_path:
-            loaders.selected = get_selected_loader(**args)
+        loaders = Munch(train=get_train_loader(**args))
         solver.train(loaders)
     elif args.mode == 'sample':
         solver.sample()

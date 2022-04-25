@@ -3,15 +3,15 @@ import os
 import time
 
 import torch
-from torch import nn
 from munch import Munch
+from torch import nn
 
 from data.fetcher import Fetcher
 from metrics.eval import calculate_total_fid
 from metrics.fid import calculate_fid_given_paths
 from models.build import build_model
 from solver.loss import compute_g_loss, compute_d_loss
-from solver.misc import translate_using_latent, generate_samples
+from solver.misc import generate_samples, sample_using_latent
 from solver.utils import he_init, moving_average
 from utils.checkpoint import CheckpointIO
 from utils.file import delete_dir, write_record, delete_model, delete_sample
@@ -103,15 +103,9 @@ class Solver:
         optims = self.optims
 
         train_fetcher = Fetcher(loaders.train, args)
-        test_fetcher = Fetcher(loaders.test, args)
 
         # Those fixed samples are used to show the trend.
-        fixed_train_sample = next(train_fetcher)
-        fixed_test_sample = next(test_fetcher)
-        if args.selected_path:
-            # actually we don't care y
-            fixed_selected_samples = next(iter(loaders.selected))
-            fixed_selected_samples = fixed_selected_samples.to(self.device)
+        fixed_z = torch.randn(args.batch_size, args.z_dim).cuda()
 
         # Load or initialize the model parameters.
         if args.start_iter > 0:
@@ -125,25 +119,22 @@ class Solver:
         start_time = time.time()
         for step in range(args.start_iter + 1, args.end_iter + 1):
             self.train_mode()
-            sample_org = next(train_fetcher)  # sample that to be translated
-            sample_ref = next(train_fetcher)  # reference samples
+            sample = next(train_fetcher)
 
             # Train the discriminator
-            d_loss, d_loss_ref = compute_d_loss(nets, args, sample_org, sample_ref)
+            d_loss, d_loss_ref = compute_d_loss(nets, args, sample)
             self.zero_grad()
             d_loss.backward()
             optims.discriminator.step()
 
             # Train the generator
-            g_loss, g_loss_ref = compute_g_loss(nets, args, sample_org, sample_ref)
+            g_loss, g_loss_ref = compute_g_loss(nets, args, sample)
             self.zero_grad()
             g_loss.backward()
             optims.generator.step()
-            optims.mapping_network.step()
 
             # Update generator_ema
             moving_average(nets.generator, nets_ema.generator, beta=args.ema_beta)
-            moving_average(nets.mapping_network, nets_ema.mapping_network, beta=args.ema_beta)
 
             self.eval_mode()
 
@@ -169,22 +160,8 @@ class Solver:
 
             if step % args.sample_every == 0:
                 def training_sampler(which_nets, sample_prefix=""):
-                    repeat_num = 2
-                    N = args.batch_size
-                    y_trg_list = [torch.tensor(y).repeat(N).to(self.device) for y in range(min(args.num_domains, 5))]
-                    z_trg_list = torch.randn(repeat_num, 1, args.latent_dim).repeat(1, N, 1).to(self.device)
-                    translate_using_latent(which_nets, args, fixed_test_sample.x, y_trg_list, z_trg_list,
-                                           os.path.join(args.sample_dir, f"{sample_prefix}latent_test_{step}.jpg"))
-                    translate_using_latent(which_nets, args, fixed_train_sample.x, y_trg_list, z_trg_list,
-                                           os.path.join(args.sample_dir, f"{sample_prefix}latent_train_{step}.jpg"))
-                    if args.selected_path:
-                        N = fixed_selected_samples.shape[0]
-                        y_trg_list = [torch.tensor(y).repeat(N).to(self.device) for y in
-                                      range(min(args.num_domains, 5))]
-                        z_trg_list = torch.randn(repeat_num, 1, args.latent_dim).repeat(1, N, 1).to(self.device)
-                        translate_using_latent(which_nets, args, fixed_selected_samples, y_trg_list, z_trg_list,
-                                               os.path.join(args.sample_dir,
-                                                            f"{sample_prefix}latent_selected_{step}.jpg"))
+                    sample_using_latent(which_nets, args, fixed_z,
+                                        os.path.join(args.sample_dir, f"{sample_prefix}latent_fixed_{step}.jpg"))
 
                 training_sampler(nets_ema, 'ema_')
                 if args.sample_non_ema:

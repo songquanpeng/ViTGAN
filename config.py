@@ -10,7 +10,7 @@ import torch
 from munch import Munch
 from torch.backends import cudnn
 
-from utils.file import prepare_dirs, list_sub_folders
+from utils.file import prepare_dirs
 from utils.file import save_json
 from utils.misc import get_datetime, str2bool, get_commit_hash
 
@@ -55,19 +55,9 @@ def setup_cfg(args):
     if os.path.exists(f'./scripts/{args.exp_id}.sh'):
         shutil.copyfile(f'./scripts/{args.exp_id}.sh', os.path.join(args.exp_dir, args.exp_id, f'{args.exp_id}.sh'))
 
-    args.domains = list_sub_folders(args.train_path, full_path=False)
-    args.num_domains = len(args.domains)
-
-    if args.cache_dataset:
-        print("Warning: reset preload_dataset = True, because cache_dataset option enabled.")
-        args.preload_dataset = True
-
 
 def validate_cfg(args):
     assert args.eval_every % args.save_every == 0
-    assert args.num_domains == len(list_sub_folders(args.test_path, full_path=False))
-    if args.cache_dataset:
-        assert args.preload_dataset, "Use cached dataset requires you enable preloading dataset!"
 
 
 def load_cfg():
@@ -121,25 +111,26 @@ def parse_args():
     parser.add_argument('--device', type=str, default='cuda' if torch.cuda.is_available() else 'cpu')
 
     # Model related arguments.
-    parser.add_argument('--img_size', type=int, default=128)
-    parser.add_argument('--latent_dim', type=int, default=16)
-    parser.add_argument('--style_dim', type=int, default=64)
+    parser.add_argument('--image_size', type=int, default=64)
+    parser.add_argument('--patch_size', type=int, default=8)
+    parser.add_argument('--image_dim', type=int, default=3)
+    parser.add_argument('--z_dim', type=int, default=64)
+    parser.add_argument('--pool', type=str, default='cls', choices=['cls', 'mean'])
+    parser.add_argument('--g_dim', type=int, default=384)
+    parser.add_argument('--g_blocks', type=int, default=6)
+    parser.add_argument('--g_attention_head_num', type=int, default=8)
+    parser.add_argument('--g_attention_head_dim', type=int, default=64)
+    parser.add_argument('--g_transformer_dropout', type=float, default=0.1)
 
     # Dataset related arguments.
-    parser.add_argument('--dataset', type=str, required=True)
-    parser.add_argument('--npz_path', type=str)
-    parser.add_argument('--npz_image_root', type=str)
-    parser.add_argument('--preload_dataset', type=str2bool, default=False, help='load entire dataset into memory')
-    parser.add_argument('--cache_dataset', type=str2bool, default=False, help='generate & use cached dataset')
+    parser.add_argument('--dataset', type=str, default='CelebA')
+    parser.add_argument('--dataset_path', type=str, required=True)
 
     # Training related arguments
     parser.add_argument('--parameter_init', type=str, default='he', choices=['he', 'default'])
     parser.add_argument('--start_iter', type=int, default=0)
     parser.add_argument('--end_iter', type=int, default=100000)
     parser.add_argument('--num_workers', type=int, default=4)
-    parser.add_argument('--train_path', type=str, required=True)
-    parser.add_argument('--num_domains', type=int)
-    parser.add_argument('--domains', type=str, nargs='+')
 
     # Sampling related arguments
     parser.add_argument('--sample_id', type=str)
@@ -152,11 +143,7 @@ def parse_args():
     parser.add_argument('--keep_best_eval_samples', type=str2bool, default=True)
     parser.add_argument('--eval_repeat_num', type=int, default=1)
     parser.add_argument('--eval_batch_size', type=int, default=32)
-    parser.add_argument('--test_path', type=str, required=True)
     parser.add_argument('--eval_path', type=str, required=True, help="compare with those images")
-    parser.add_argument('--eval_cache', type=str2bool, default=True, help="Cache what can be safely cached")
-    parser.add_argument('--selected_path', type=str, required=False,
-                        help="Every time we sample, we will translate the images in this path")
 
     # Optimizing related arguments.
     parser.add_argument('--lr', type=float, default=1e-4, help="Learning rate for generator.")

@@ -3,17 +3,16 @@ import torch.nn.functional as F
 from munch import Munch
 
 
-def compute_d_loss(nets, args, sample_org, sample_ref):
+def compute_d_loss(nets, args, sample):
     # Real images
-    sample_org.x.requires_grad_()
-    out = nets.discriminator(sample_org.x, sample_org.y)
+    sample.x.requires_grad_()
+    out = nets.discriminator(sample.x)
     loss_real = adv_loss(out, 1)
 
     # Fake images
     with torch.no_grad():
-        s_ref = nets.mapping_network(sample_ref.z, sample_ref.y)
-        x_fake = nets.generator(sample_org.x, s_ref)
-    out = nets.discriminator(x_fake, sample_ref.y)
+        x_fake = nets.generator(sample.z)
+    out = nets.discriminator(x_fake)
     loss_fake = adv_loss(out, 0)
 
     loss = loss_real + loss_fake
@@ -21,11 +20,9 @@ def compute_d_loss(nets, args, sample_org, sample_ref):
                        fake=loss_fake.item())
 
 
-def compute_g_loss(nets, args, sample_org, sample_ref):
-    s_ref = nets.mapping_network(sample_ref.z, sample_ref.y)
-    x_fake = nets.generator(sample_org.x, s_ref)
-    out = nets.discriminator(x_fake, sample_ref.y)
-
+def compute_g_loss(nets, args, sample):
+    x_fake = nets.generator(sample.z)
+    out = nets.discriminator(x_fake)
     loss_adv = adv_loss(out, 1)
 
     loss = loss_adv
