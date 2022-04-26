@@ -26,15 +26,32 @@ class Generator(nn.Module):
         # self.dropout = nn.Dropout(emb_dropout)
         # TODO: improve this mapping network
         self.mapping_network = nn.Sequential(
-            nn.Linear(args.z_dim, args.g_dim)
+            nn.Linear(args.z_dim, args.g_dim),
+            nn.LeakyReLU(inplace=True),
+            nn.Linear(args.g_dim, args.g_dim),
+            nn.LeakyReLU(inplace=True),
+            nn.Linear(args.g_dim, args.g_dim),
+            nn.LeakyReLU(inplace=True),
+            nn.Linear(args.g_dim, args.g_dim),
+            nn.LeakyReLU(inplace=True),
+            nn.Linear(args.g_dim, args.g_dim),
+            nn.LeakyReLU(inplace=True),
+            nn.Linear(args.g_dim, args.g_dim),
+            nn.LeakyReLU(inplace=True)
         )
         self.transformer = SLNTransformer(args.g_dim, dim, depth=args.g_blocks, heads=args.g_attention_head_num,
                                           dim_head=args.g_attention_head_dim, mlp_dim=dim,
                                           dropout=args.g_transformer_dropout)
 
+        # TODO: why sin activation not working?
+        # self.to_rgb = nn.Sequential(
+        #     LinearWithSinActivation(dim, dim * 2),
+        #     LinearWithSinActivation(dim * 2, args.patch_size * args.patch_size * image_dim)
+        # )
         self.to_rgb = nn.Sequential(
-            LinearWithSinActivation(dim, dim * 2),
-            LinearWithSinActivation(dim * 2, args.patch_size * args.patch_size * image_dim)
+            nn.Linear(dim, dim * 2),
+            nn.LeakyReLU(inplace=True),
+            nn.Linear(dim * 2, args.patch_size * args.patch_size * image_dim)
         )
 
     def forward(self, z):

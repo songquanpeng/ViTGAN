@@ -147,7 +147,7 @@ def parse_args():
 
     # Optimizing related arguments.
     parser.add_argument('--lr', type=float, default=1e-4, help="Learning rate for generator.")
-    parser.add_argument('--d_lr', type=float, default=1e-4, help="Learning rate for discriminator.")
+    parser.add_argument('--d_lr', type=float, default=1e-6, help="Learning rate for discriminator.")  # TODO: d's lr
     parser.add_argument('--beta1', type=float, default=0.0)
     parser.add_argument('--beta2', type=float, default=0.99)
     parser.add_argument('--weight_decay', type=float, default=1e-4)
